@@ -1,0 +1,5 @@
+build/
+*.AppImage
+*.zsync
+*.tar.gz
+appimagetool

@@ -1,0 +1,79 @@
+name: Build DBeaver AppImage
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 4 * * *' # 4 AM UTC daily
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2 jq wget curl
+
+      - name: Get latest version
+        id: check_version
+        run: |
+          VERSION=$(curl -s "https://api.github.com/repos/dbeaver/dbeaver/releases/latest" | jq -r '.tag_name')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if already built
+        id: check_release
+        run: |
+          VERSION="${{ steps.check_version.outputs.version }}"
+          REPO="${{ github.repository }}"
+          
+          # Only skip if it's a scheduled run and version exists
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            RELEASE_INFO=$(curl -s "https://api.github.com/repos/$REPO/releases/tags/$VERSION")
+            RELEASE_ID=$(echo "$RELEASE_INFO" | jq -r '.id // empty')
+            
+            if [[ ! -z "$RELEASE_ID" ]]; then
+              echo "Version $VERSION already exists. Skipping scheduled build."
+              echo "skip=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Build AppImage
+        if: steps.check_release.outputs.skip != 'true'
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Create Release
+        if: steps.check_release.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.check_version.outputs.version }}
+          name: DBeaver ${{ steps.check_version.outputs.version }}
+          body: |
+            Automated build of DBeaver Community AppImage.
+            Version: ${{ steps.check_version.outputs.version }}
+          files: build/*.AppImage*
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Latest Tag
+        if: steps.check_release.outputs.skip != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest Release
+          body: "DBeaver Version: ${{ steps.check_version.outputs.version }}"
+          files: build/*.AppImage*
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
