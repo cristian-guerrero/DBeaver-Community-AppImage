@@ -3,7 +3,7 @@ set -e
 
 # 1. Fetch latest DBeaver release info
 RELEASES_URL="https://api.github.com/repos/dbeaver/dbeaver/releases/latest"
-DOWNLOAD_URL=$(curl -s "$RELEASES_URL" | jq -r '.assets[] | select(.name | test("linux.gtk.x86_64.tar.gz$")) | .browser_download_url')
+DOWNLOAD_URL=$(curl -s "$RELEASES_URL" | jq -r '.assets[] | select(.name | test("linux-x86_64.tar.gz$")) | .browser_download_url')
 VERSION=$(curl -s "$RELEASES_URL" | jq -r '.tag_name')
 
 if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ]; then
