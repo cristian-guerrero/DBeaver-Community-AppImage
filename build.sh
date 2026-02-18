@@ -20,6 +20,10 @@ wget -q --show-progress "$DOWNLOAD_URL" -O dbeaver.tar.gz
 mkdir -p DBeaver.AppDir
 tar -xzf dbeaver.tar.gz -C DBeaver.AppDir --strip-components=1
 
+# Remove existing desktop file to avoid confusion for appimagetool
+# DBeaver-ce distribution might include dbeaver-ce.desktop at the root
+rm -f DBeaver.AppDir/*.desktop
+
 # 3. Create AppRun
 cat <<EOF > DBeaver.AppDir/AppRun
 #!/bin/sh
@@ -47,11 +51,17 @@ Comment=Free universal database tool and SQL client
 StartupWMClass=DBeaver
 EOF
 
-# 5. Copy Icon
-# DBeaver usually has icons in the root or icons folder
-cp DBeaver.AppDir/icon.xpm DBeaver.AppDir/dbeaver.xpm || true
-cp DBeaver.AppDir/dbeaver.png DBeaver.AppDir/dbeaver.png || \
-find DBeaver.AppDir -name "icon.png" -exec cp {} DBeaver.AppDir/dbeaver.png \; -quit || true
+# 5. Icons and standard files
+# AppImage requires some root files for better integration
+if [ ! -f "DBeaver.AppDir/dbeaver.png" ]; then
+    find DBeaver.AppDir -name "icon.png" -exec cp {} DBeaver.AppDir/dbeaver.png \; -quit || true
+fi
+cp DBeaver.AppDir/dbeaver.png DBeaver.AppDir/.DirIcon || true
+cp DBeaver.AppDir/dbeaver.png DBeaver.AppDir/icon.png || true
+# DBeaver often has an icon.xpm as well
+if [ -f "DBeaver.AppDir/icon.xpm" ] && [ ! -f "DBeaver.AppDir/dbeaver.xpm" ]; then
+    cp DBeaver.AppDir/icon.xpm DBeaver.AppDir/dbeaver.xpm
+fi
 
 # 6. Download appimagetool
 wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
